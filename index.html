@@ -1,0 +1,563 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>Image Alignment Project</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+        <link rel="stylesheet" href="assets/css/main.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    </head>
+    <body class="is-preload">
+
+        <!-- Header -->
+        <section id="header">
+            <header>
+                <h1 id="logo"><a href="#">Kelvin Li</a></h1>
+            </header>
+            <nav id="nav">
+                <ul>
+                    <li><a href="#intro" class="active">Intro</a></li>
+                    <li><a href="#metric">Alignment Metric</a></li>
+                    <li><a href="#algorithm">Alignment Algorithm</a></li>
+                    <li><a href="#improvements">Improvements</a></li>
+                    <li><a href="#all_results">All Results</a></li>
+                </ul>
+            </nav>
+        </section>
+
+        <!-- Wrapper -->
+        <div id="wrapper">
+
+            <!-- Intro -->
+            <section id="intro">
+                <div class="container">
+                    <header class="major">
+                        <h2>Introduction</h2>
+                    </header>
+                    <h3>Problem</h3>
+                    <p>This project involves aligning three grayscale images, each for the Red, Green, and Blue channels. 
+						The goal is to line them up correctly so they can be combined into a single color image. 
+						Proper alignment is essential to avoid color distortions and ensure the final image looks right. 
+						This page will explore the different methods used to achieve this alignment.
+                        We will assume that a simple (x,y) translation model is sufficient for proper alignment. 
+                        We will use images from the Prokudin-Gorskii collection for this project.
+                    </p>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/emir.tif" alt="emir input" />
+                            <figcaption>Example input</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/emir_output.jpg" alt="emir output" />
+                            <figcaption>Example output</figcaption>
+                        </div>
+                    </div>
+                    <h3>Preliminary Steps</h3>
+                    <p>We will first cut the input image evenly into 3 equal parts to obtain a single 
+                        grayscale image for each of the 3 channels. These images contain borders that interfers
+                        with the alignment algorithms. To remove these borders, we crop the images by cropping
+                        a fixed fraction of the image from the 4 boundaries.
+                    </p>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/emir_blue.jpg" alt="emir blue" />
+                            <figcaption>Blue channel, before crop</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/emir_green.jpg" alt="emir green" />
+                            <figcaption>Green channel, before crop</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/emir_red.jpg" alt="emir red" />
+                            <figcaption>Red channel, before crop</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/b_cropped.jpg" alt="emir blue cropped" />
+                            <figcaption>Blue channel, after crop</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/g_cropped.jpg" alt="emir green cropped" />
+                            <figcaption>Green channel, after crop</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/r_cropped.jpg" alt="emir red cropped" />
+                            <figcaption>Red channel, after crop</figcaption>
+                        </div>
+                    </div>                    
+                </div>
+            </section>
+
+            <!-- Alignment Metric -->
+            <section id="metric">
+                <div class="container">
+                    <header class="major">
+                        <h2>Alignment Metric</h2>
+                    </header>
+                    <h3>Normalized Cross-Correlation</h3>
+                    <p>
+                        The NCC can be used to compute how similar two images are. The NCC value can range from -1 to 1.
+                        By normalizing, the metric can give a good measure of the difference in intensities (eg exposure) between the 2 images.
+                        Normalization ensures that the comparison focuses on the relative patterns and structures within the images, rather than their absolute intensity values.
+                    </p>
+                    <p>
+                        The NCC can be expressed as:
+                    </p>
+                    <p>
+                        \[
+                        \text{NCC}(A, B) = \frac{\sum_{x,y} (A(x, y) - \bar{A})(B(x, y) - \bar{B})}{\sqrt{\sum_{x,y} (A(x, y) - \bar{A})^2 \cdot \sum_{x,y} (B(x, y) - \bar{B})^2}}
+                        \]
+                    </p>
+                </div>
+            </section>
+
+            <!-- Alignment Algorithm -->
+            <section id="algorithm">
+                <div class="container">
+                    <header class="major">
+                        <h2>Alignment Algorithm</h2>
+                    </header>
+                    <h3>Single-scale alignment</h3>
+                    <p>We will take the blue channel image as the reference image and attempt to align the red and
+                        green channel image to it. As mentioned in the Problem Statement, we assume that a simple (x ,y) 
+                        translation is sufficient for proper alignment. We first attempt to align the red channel with 
+                        the blue channel. We iterate through a reasonably large window (10% of image size) of (x, y) translations on the 
+                        red channel image and compute the NCC for each of these translations. The translation that produced
+                        the largest NCC is chosen. For simplicity, we used a circular translation (np.roll).
+                        Then, we do the same for the green channel (ie attempting to align it with the blue channel). 
+                        After the alignments, we stack the 3 channels together to produce a color image.
+                    </p>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/cathedral_no_border_removal.jpg" alt="cathedral_no_border_removal" />
+                            <figcaption>Cathedral, without border removal</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/cathedral_simple_border_removal.jpg" alt="cathedral_simple_border_removal" />
+                            <figcaption>Cathedral, with border removal</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/monastery_no_border_removal.jpg" alt="monastery_no_border_removal" />
+                            <figcaption>Monastery, without border removal</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/monastery_simple_border_removal.jpg" alt="monastery_simple_border_removal" />
+                            <figcaption>Monastery, with border removal</figcaption>
+                        </div>
+                    </div>
+                    <p>
+                        For some cases, the existence of the border does not impact the alignment
+                        of the final image much. But for other cases like in Monastery, the impact is 
+                        quite pronounced.
+                    </p>
+                    <h3>Multi-scale alignment using Gaussian Pyramid</h3>
+                    <p>
+                        When images get large, it becomes increasingly infeasible to use the single-scale algorithm for alignment.
+                        Specifically, each computation of the NCC takes longer, and the number of computations to run will also
+                        be increased (ie the window-size is increased to cover 10% of the image). To speed things up, we will use the 
+                        technique of multi-scale alignment using Gaussian Pyramids.
+                    </p>
+                    <p>
+                        The Gaussian Pyramid is a list of images, starting from the original full
+                        quality image at the base of the pyramid and becoming smaller (less pixels) and 
+                        coarser as we go up the pyramid. This rescaling is done by convolving the
+                        image with a Gaussian Kernel and subsampling alternate pixels of the image.
+                    </p>
+
+                    <p class="pseudocode">
+Algorithm: Image Alignment using Gaussian Pyramid and NCC
+
+Input: Original image with 3 color channels
+
+1. For each color channel:
+    a. Generate Gaussian Pyramid:
+        - Start with the original image
+        - While the current image size is greater than 200x200:
+            - Apply Gaussian filter to smooth the image
+            - Down-sample the image by a factor of 0.5
+
+2. Perform the alignment process:
+    - First, align the red channel against the blue channel
+    - Second, align the blue channel against the green channel
+
+    For each alignment:
+    a. Set initial window-size to 32x32
+    b. Iterate through translations within window-size on the smallest image:
+        - For each translation, compute NCC
+        - Find the translation that maximizes NCC
+    c. Apply the optimal translation on the next-finer image:
+        - Double the translation values (since the next-finer image is twice the size)
+    d. Reduce window-size by half
+        - To reduce computation time for larger images.
+    e. Repeat steps 2b to 2d until we reach the original, full-quality image.
+
+3. Stack the 3 images into a single color image
+                    </p>   
+                    <p>
+                        Here are some results:
+                    </p>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/sculpture_no_border_removal.jpg" alt="sculpture_no_border_removal" />
+                            <figcaption>Sculpture, without border removal</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/sculpture_simple_border_removal.jpg" alt="sculpture_simple_border_removal" />
+                            <figcaption>Sculpture, with border removal</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/church_no_border_removal.jpg" alt="church_no_border_removal" />
+                            <figcaption>Church, without border removal</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/church_simple_border_removal.jpg" alt="church_simple_border_removal" />
+                            <figcaption>Church, with border removal</figcaption>
+                        </div>
+                    </div>         
+                </div>
+            </section>
+
+            <!-- Improvements-->
+            <section id="improvements">
+                <div class="container">
+                    <header class="major">
+                        <h2>Improvements</h2>
+                    </header>
+                    <h3>Canny edge detection</h3>
+                    <p>Instead of trying to align the images by their raw grayscale images, it may be better
+                        to align them by their edges. The raw images may be subject to noise such as different
+                        lighting variations that hinder the alignment algorithm. A popular algorithm used to 
+                        find edges of an image is the Canny edge detection algorithm.
+                    </p>
+                    <p>
+                        Canny edge detection is a multi-step algorithm used to detect edges in images. It involves 
+                        smoothing the image with a Gaussian filter to reduce noise, calculating intensity gradients, 
+                        and applying non-maximum suppression to thin the edges. Double thresholding is then used to 
+                        classify strong, weak, and non-edges, followed by edge tracking by hysteresis to finalize 
+                        the edges. To do this, we used OpenCV's cv2.Canny().
+                    </p>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/b_cropped.jpg" alt="emir blue cropped" />
+                            <figcaption>Blue channel</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/g_cropped.jpg" alt="emir green cropped" />
+                            <figcaption>Green channel</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/r_cropped.jpg" alt="emir red cropped" />
+                            <figcaption>Red channel</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/b_canny.jpg" alt="emir blue canny" />
+                            <figcaption>Blue channel, edges</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/g_canny.jpg" alt="emir green canny" />
+                            <figcaption>Green channel, edges</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/r_canny.jpg" alt="emir red canny" />
+                            <figcaption>Red channel, edges</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/emir_no_canny.jpg" alt="emir_no_canny" />
+                            <figcaption>Alim Khan, aligned with raw images</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/emir_output.jpg" alt="emir_output" />
+                            <figcaption>Alim Khan, aligned with edges</figcaption>
+                        </div>
+                    </div>
+                    <p>
+                        Directly aligning the images based on the raw grayscale images may not give us 
+                        desirable results. For the example above, the blue coat of Alim Khan shows up as pixels with
+                        intensity close to 1 in the blue channel but much less information is captured in the red and green
+                        channels. Maximizing the NCC on the raw images thus produces a distorted image. 
+                        Instead, aligning with edges (eg the outline of Alim Khan's bod and key structural patterns on his coat) can better capture important structural 
+                        information and produce a better image.
+                    </p>
+                <h3>Automatic border cropping</h3>
+                <p>
+                    Instead of cropping a fixed fraction of the image, this section aims to provide different
+                    approaches to automatically crop the image.  
+                </p>
+                <p>
+                    Approach 1: Computing mean intensity row-wise/ column-wise. The images each contain
+                    2 borders - a white outer border and a black inner border. To remove the top border,
+                    we will scan the image row-wise and compute the mean intensity of the row. If the mean is greater
+                    than a threshold of 0.95, we classify this border as a white border and remove it. If the mean
+                    is less than a threshold of 0.05, we classify this broder as a black border and remove it. Since 
+                    we know that the image starts with a white border and is immediately followed by a black border, we can
+                    stop scanning once we have reached a row where the mean is within the 2 thresholds, which will mean that
+                    we have reached the end of the black border and have reached the image and we can stop scanning. The same approach can be used to also remove the other
+                    3 borders. However, the performance of this approach is hindered by several factors. Firstly, there is a 
+                    considerable amount of noise on the borders (the borders are often not cleanly separated from the image and
+                    the borders have varying intensities).
+                    There are also writings/ labellings on the borders which hinder the performance of this approach.
+                </p>
+                <p>
+                    Approach 2: First process the images with cv2.Canny() to obtain the edges image. 
+                    To remove the top border, start the scan from the 10% mark (this is chosen as a "safe" point
+                    where we know we will be within the image and not the border) of the image and scan
+                    outwards. Compute the mean intensity of the edges image of the row. Once this mean is above
+                    a certain threshold, it will mean that we have reached a border row and we can crop the current row 
+                    and all rows above the current row out. We can do something similar for the other 3 borders. This
+                    approach works better than Approach 1 because the edges image can better capture the structure of
+                    the border and is less sensitive to noise such as difference in intensities between different
+                    parts of the border. After cropping the 3 channels separately, the 3 cropped images may have
+                    different dimensions. The 3 images are thus additionally cropped to the min (x,y) dimensions between them so that
+                    the final images have the same dimensions.
+                </p>
+                <div class="image-comparison">
+                    <div class="image-container">
+                        <img src="images/b.jpg" alt="b" />
+                        <figcaption>Blue channel</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/g.jpg" alt="g" />
+                        <figcaption>Green channel</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/r.jpg" alt="r" />
+                        <figcaption>Red channel</figcaption>
+                    </div>
+                </div>
+                <div class="image-comparison">
+                    <div class="image-container">
+                        <img src="images/train_cropped_b.jpg" alt="train_cropped_b" />
+                        <figcaption>Blue channel, fixed border removal</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/train_cropped_g.jpg" alt="train_cropped_g" />
+                        <figcaption>Green channel, fixed border removal</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/train_cropped_r.jpg" alt="train_cropped_r" />
+                        <figcaption>Red channel, fixed border removal</figcaption>
+                    </div>
+                </div>
+                <div class="image-comparison">
+                    <div class="image-container">
+                        <img src="images/b_autocrop.jpg" alt="b_autocrop" />
+                        <figcaption>Blue channel auto border removal</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/g_autocrop.jpg" alt="g_autocrop" />
+                        <figcaption>Green channel auto border removal</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/r_autocrop.jpg" alt="r_autocrop" />
+                        <figcaption>Red channel auto border removal</figcaption>
+                    </div>
+                </div>
+                <div class="image-comparison">
+                    <div class="image-container">
+                        <img src="images/train_no_border_removal.jpg" alt="train_no_border_removal" />
+                        <figcaption>No border removal</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/train_simple_border_removal.jpg" alt="train_simple_border_removal" />
+                        <figcaption>Fixed border removal</figcaption>
+                    </div>
+                    <div class="image-container">
+                        <img src="images/train_auto_ border_removal.jpg" alt="train_auto_border_removal" />
+                        <figcaption>Auto border removal</figcaption>
+                    </div>
+                </div>
+                <p>
+                    As we can see with this example, if we have no border removal, the borders 
+                    mess with the alignment algorithm (NCC maximization) and produces a distorted image.
+                    If we have a fixed border removal, it is possible that by removing a fixed 
+                    fraction, we are also removing some key parts of the image that we want to keep (in this
+                    case we are cropping out a bit of the top part of the train). Having an automatic 
+                    border removal will thus remove the borders and we do not have to worry about tuning the 
+                    exact fraction to crop away (in the case of the fixed border removal)
+                </p>
+                </div>
+            </section>
+            
+            <!-- All results -->
+            <section id="all_results">
+                <div class="container">
+                    <header class="major">
+                        <h2>All Results</h2>
+                    </header>
+                    <p>
+                        The following shows the results for all the images tested, as well as the displacements.
+                        The displacements are in (y, x) and are listed for green against blue and red against blue channels
+                        respectively.
+                    </p>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/cathedral.jpg" alt="cathedral" />
+                            <figcaption>Cathedral</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/cathedral_output.jpg" alt="cathedral_output" />
+                            <figcaption>Displacement: (5,2) / (12,3)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/church.tif" alt="church" />
+                            <figcaption>Church</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/church_output.jpg" alt="church_output" />
+                            <figcaption>Displacement: (25,4) / (58,-4)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/emir.tif" alt="emir" />
+                            <figcaption>Emir</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/emir_output.jpg" alt="emir_output" />
+                            <figcaption>Displacement: (49,24) / (107,40)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/harvesters.tif" alt="harvesters" />
+                            <figcaption>Harvesters</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/harvesters_output.jpg" alt="harvesters_output" />
+                            <figcaption>Displacement: (59,16) / (124,13)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/icon.tif" alt="icon" />
+                            <figcaption>Icon</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/icon_output.jpg" alt="icon_output" />
+                            <figcaption>Displacement: (41,17) / (89,23)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/lady.tif" alt="lady" />
+                            <figcaption>Lady</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/lady_output.jpg" alt="lady_output" />
+                            <figcaption>Displacement: (51,9) / (112,11)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/melons.tif" alt="melons" />
+                            <figcaption>Melons</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/melons_output.jpg" alt="melons_output" />
+                            <figcaption>Displacement: (81,10) / (178,13)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/monastery.jpg" alt=" monastery" />
+                            <figcaption> Monastery</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/monastery_output.jpg" alt="monastery_output" />
+                            <figcaption>Displacement: (-3,2) / (3,2)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/onion_church.tif" alt=" monastery" />
+                            <figcaption> Onion Church</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/onion_church_output.jpg" alt="onion_church_output" />
+                            <figcaption>Displacement: (51,26) / (108,36)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/sculpture.tif" alt="sculpture" />
+                            <figcaption>Sculpture</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/sculpture_output.jpg" alt="sculpture_output" />
+                            <figcaption>Displacement: (33,-11) / (140,-27)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/self_portrait.tif" alt="self_portrait" />
+                            <figcaption>Self Portrait</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/self_portrait_output.jpg" alt="self_portrait_output" />
+                            <figcaption>Displacement: (78,29) / (176,37)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/three_generations.tif" alt="three_generations" />
+                            <figcaption>Three Generations</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/three_generations_output.jpg" alt="three_generations_output" />
+                            <figcaption>Displacement: (53,14) / (112,11)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/tobolsk.jpg" alt="tobolsk" />
+                            <figcaption>Tobolsk</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/tobolsk_output.jpg" alt="tobolsk_output" />
+                            <figcaption>Displacement: (3,3) / (6,3)</figcaption>
+                        </div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-container">
+                            <img src="images/all_results/train.tif" alt="train" />
+                            <figcaption>Train</figcaption>
+                        </div>
+                        <div class="image-container">
+                            <img src="images/all_results/train_output.jpg" alt="train_output" />
+                            <figcaption>Displacement: (-169,19) / (-116,23)</figcaption>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </section>
+
+            <!-- Footer -->
+            <section id="footer">
+                <div class="container">
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Scripts -->
+        <script src="assets/js/jquery.min.js"></script>
+        <script src="assets/js/jquery.scrollex.min.js"></script>
+        <script src="assets/js/jquery.scrolly.min.js"></script>
+        <script src="assets/js/browser.min.js"></script>
+        <script src="assets/js/breakpoints.min.js"></script>
+        <script src="assets/js/util.js"></script>
+        <script src="assets/js/main.js"></script>
+
+    </body>
+</html>
